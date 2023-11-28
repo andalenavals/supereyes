@@ -2,7 +2,10 @@ import requests
 import json
 
 # Your OpenAI API key
-api_key = 'YOUR_API_KEY'
+with open('apikey.txt', 'r') as f:
+    KEY= f.read()
+
+api_key = KEY
 
 # Function to transcribe audio using Whisper
 def transcribe_audio(file_path):
