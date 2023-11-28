@@ -2,12 +2,15 @@ import requests
 import json
 import os
 from emergencytext import generate_emergency_text
+from openai import OpenAI
 import base64
 # Your OpenAI API key
-with open('apikey.txt', 'r') as f:
+client = OpenAI()
+client.api_key_path="apikey.txt"
+""" with open('apikey.txt', 'r') as f:
     KEY= f.read()
 
-api_key = KEY
+api_key = KEY """
 
 # Function to encode the image
 def encode_image(image_path):
@@ -16,17 +19,22 @@ def encode_image(image_path):
 
 # Function to transcribe audio using Whisper
 def transcribe_audio(file_path):
-    url = 'https://api.openai.com/v1/audio/transcriptions'
+    audio_file = open(file_path, "rb")
+    transcript = client.audio.transcriptions.create(
+    model="whisper-1",
+    file=audio_file
+    )
+    """ url = 'https://api.openai.com/v1/audio/transcriptions'
     headers = {
         'Authorization': f'Bearer {api_key}',
         'Content-Type': 'multipart/form-data'
     }
     files = {
         'file': open(file_path, 'rb'),
-        'model': (None, 'whisper-1')
+        'model': ("base", 'whisper-1')
     }
-    response = requests.post(url, headers=headers, files=files)
-    return response.json()
+    response = requests.post(url, headers=headers, files=files) """
+    return transcript
 
 # Function to analyze image using GPT-4 Vision
 def analyze_image(base64_image):
@@ -59,10 +67,30 @@ def analyze_image(base64_image):
     response = requests.post(url, headers=headers, json=payload)
     return response.json()
 
-# Example usage
+# Function to call ChatGPT-4 with the prompt
+def call_chatgpt(prompt):
+    url = 'https://api.openai.com/v1/chat/completions'  # This URL might be different for GPT-4
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {api_key}'
+    }
+    data = {
+        'model': 'gpt-4',  # Model name might be different for ChatGPT-4
+        'prompt': prompt,
+        'max_tokens': 500  # Adjust as needed
+    }
+    response = requests.post(url, headers=headers, json=data)
+    return response.json()
+
 audiopath=os.path.join('assets', 'audio.mp3')
 imagepath=os.path.join('assets', 'chest-pain.jpg')
+assert os.path.isfile(audiopath)
+assert os.path.isfile(imagepath)
+
 audio_transcription = transcribe_audio(audiopath)
+print(audio_transcription)
+assert False
+#TODO update also image analysis using openAI library
 image_analysis = analyze_image(imagepath)
 emergency_text = generate_emergency_text()
 
@@ -81,3 +109,8 @@ prompt = f"Given the following inputs:\n\n" \
          "NACA Score: Based on the severity and urgency indicated in the texts, assign a NACA (National Advisory Committee for Aeronautics) score to the situation.\n" \
          "Resources to Deploy: Recommend the appropriate emergency resources (e.g., medical, fire, police) that should be deployed in this situation.\n" \
          "Immediate Suggestions: Provide practical advice or instructions that can be suggested to the person in the emergency to do in the meantime while rescue services are en route."
+# Call ChatGPT-4 with the prompt
+chatgpt_response = call_chatgpt(prompt)
+
+# Print the result
+print(chatgpt_response)
