@@ -2,12 +2,17 @@ import requests
 import json
 import os
 from emergencytext import generate_emergency_text
-
+import base64
 # Your OpenAI API key
 with open('apikey.txt', 'r') as f:
     KEY= f.read()
 
 api_key = KEY
+
+# Function to encode the image
+def encode_image(image_path):
+    with open(image_path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode('utf-8')
 
 # Function to transcribe audio using Whisper
 def transcribe_audio(file_path):
@@ -24,22 +29,26 @@ def transcribe_audio(file_path):
     return response.json()
 
 # Function to analyze image using GPT-4 Vision
-def analyze_image(image_url):
+def analyze_image(base64_image):
     url = 'https://api.openai.com/v1/chat/completions'
     headers = {
         'Content-Type': 'application/json',
         'Authorization': f'Bearer {api_key}'
     }
-    data = {
+    payload = {
         'model': 'gpt-4-vision-preview',
         'messages': [
             {
                 'role': 'user',
                 'content': [
                     {
+                        'type': 'text',
+                        'text': 'What’s in this image?'
+                    },
+                    {
                         'type': 'image_url',
                         'image_url': {
-                            'url': image_url,
+                            'url': f'data:image/jpeg;base64,{base64_image}'
                         }
                     }
                 ]
@@ -47,7 +56,7 @@ def analyze_image(image_url):
         ],
         'max_tokens': 300
     }
-    response = requests.post(url, headers=headers, json=data)
+    response = requests.post(url, headers=headers, json=payload)
     return response.json()
 
 # Example usage
@@ -62,13 +71,10 @@ print(image_analysis)
 print(emergency_text)
 
 
-# Chat transcript input
-chat_transcript = "Example chat transcript here."
-
 # Constructing the prompt for ChatGPT
 prompt = f"Given the following inputs:\n\n" \
          f"Image Content Description: {image_analysis['choices'][0]['message']['content']}\n" \
-         f"Chat Transcript: {chat_transcript}\n" \
+         f"Chat Transcript: {emergency_text}\n" \
          f"Call Transcript (TTS): {audio_transcription['choices'][0]['message']['content']}\n\n" \
          "Please analyze the emergency situation and provide an analysis based on these parameters:\n\n" \
          "Sentiment: Evaluate and describe the overall sentiment of the individuals involved in the emergency situation based on the provided texts.\n" \
