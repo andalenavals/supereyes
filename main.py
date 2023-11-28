@@ -1,5 +1,7 @@
 import requests
 import json
+import os
+from emergencytext import generate_emergency_text
 
 # Your OpenAI API key
 with open('apikey.txt', 'r') as f:
@@ -49,8 +51,16 @@ def analyze_image(image_url):
     return response.json()
 
 # Example usage
-audio_transcription = transcribe_audio('/path/to/audio/file.mp3')
-image_analysis = analyze_image('https://example.com/image.jpg')
+audiopath=os.path.join('assets', 'audio.mp3')
+imagepath=os.path.join('assets', 'chest-pain.jpg')
+audio_transcription = transcribe_audio(audiopath)
+image_analysis = analyze_image(imagepath)
+emergency_text = generate_emergency_text()
+
+print(audio_transcription)
+print(image_analysis)
+print(emergency_text)
+
 
 # Chat transcript input
 chat_transcript = "Example chat transcript here."
