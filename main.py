@@ -1,6 +1,10 @@
 import requests
 import json
 import os
+
+import transforms
+from safetensors import torch
+
 from emergencytext import generate_emergency_text
 from openai import OpenAI
 import base64
@@ -82,15 +86,24 @@ def analyze_image(image_path):
 
 # Function to call ChatGPT-4 with the prompt
 def call_chatgpt(prompt):
-    url = 'https://api.openai.com/v1/chat/completions'  # This URL might be different for GPT-4
+    url = 'https://api.openai.com/v1/chat/completions'  # URL for the ChatGPT API
     headers = {
         'Content-Type': 'application/json',
         'Authorization': f'Bearer {api_key}'
     }
     data = {
-        'model': 'gpt-4',  # Model name might be different for ChatGPT-4
-        'prompt': prompt,
-        'max_tokens': 500  # Adjust as needed
+        'model': 'gpt-4',  # Replace with the correct ChatGPT model name if different
+        'messages': [
+            {
+                'role': 'system',
+                'content': 'You are a helpful assistant.'
+            },
+            {
+                'role': 'user',
+                'content': prompt
+            }
+        ],
+        'max_tokens': 500
     }
     response = requests.post(url, headers=headers, json=data)
     return response.json()
@@ -132,17 +145,14 @@ def load_model_from_ckpt(ckpt_path):
 
 
 # Example usage
-audiopath = os.path.join('assets', 'audio.mp3')
-imagepath = os.path.join('assets', 'chest-pain.jpg')
+audiopath1 = os.path.join('assets', 'audio.mp3')
+imagepath1 = os.path.join('assets', 'chest-pain.jpg')
+woundpath1 = os.path.join('assets', 'wound.jpg')
 ckptpath = 'ckpt/pytorch_model.bin'
-audiopath=os.path.join('assets', 'audio.mp3')
-imagepath=os.path.join('assets', 'chest-pain.jpg')
-assert os.path.isfile(audiopath)
-assert os.path.isfile(imagepath)
 
-audio_transcription = transcribe_audio(audiopath)
-image_analysis = analyze_image(imagepath)
-severity_score = analyze_image_resnet(imagepath, ckpt_path=ckptpath)
+audio_transcription = transcribe_audio(audiopath1)
+image_analysis = analyze_image(imagepath1)
+severity_score = analyze_image_resnet(woundpath1, ckpt_path=ckptpath)
 emergency_text = generate_emergency_text()
 
 print(audio_transcription)
@@ -153,18 +163,19 @@ print(emergency_text)
 
 # Constructing the prompt for ChatGPT
 prompt = f"Given the following inputs:\n\n" \
-         f"Image Content Description: {image_analysis}\n" \
+         f"Image Content Description: {image_analysis} with a wound severity score of {severity_score} on a scale from 0 to 4\n" \
          f"Chat Transcript: {emergency_text}\n" \
          f"Call Transcript (TTS): {audio_transcription}\n\n" \
-         "Please analyze the emergency situation and provide an analysis based on these parameters:\n\n" \
-         "Sentiment: Evaluate and describe the overall sentiment of the individuals involved in the emergency situation based on the provided texts.\n" \
-         "NACA Score: Based on the severity and urgency indicated in the texts, assign a NACA (National Advisory Committee for Aeronautics) score to the situation.\n" \
-         "Resources to Deploy: Recommend the appropriate emergency resources (e.g., medical, fire, police) that should be deployed in this situation.\n" \
-         "Immediate Suggestions: Provide practical advice or instructions that can be suggested to the person in the emergency to do in the meantime while rescue services are en route."
+         "Please analyze the emergency situation and provide a brief analysys based on these parameters:\n\n" \
+         "Sentiment: Evaluate and describe the overall sentiment of the individuals involved in the emergency situation based on the provided texts. max 10 words for sentiment\n" \
+         "NACA Score: Based on the severity and urgency indicated in the texts, assign a NACA (National Advisory Committee for Aeronautics) score to the situation. 4 words for naca score\n" \
+         "Resources to Deploy: Recommend the appropriate emergency resources (choose only between AMBULANCE, POLICE, FIREFIGHTER) that should be deployed in this situation. 5 words for resources to deploy\n" \
+         "Immediate Suggestions: Provide practical advice or instructions that can be suggested to the person in the emergency to do in the meantime while rescue services are en route. 30 words for immediate suggestions"
 # Call ChatGPT-4 with the prompt
 
 chatgpt_response = call_chatgpt(prompt)
 print(prompt)
+
 
 
 # Print the result
