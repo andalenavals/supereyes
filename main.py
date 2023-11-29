@@ -69,21 +69,49 @@ def analyze_image(base64_image):
     response = requests.post(url, headers=headers, json=payload)
     return response.json()
 
-def analyze_image_resnet(imgage_path):
+def analyze_image_resnet(image_path, ckpt_path):
 
     processor = AutoImageProcessor.from_pretrained("microsoft/resnet-50")
-    model = ResNetForImageClassification.from_pretrained()
+    model = load_model_from_ckpt("ckpt/ResNet50/pytorch_model.bin")
 
-    image = Image.open(img_name).convert("RGB")
+    image = Image.open(image_path).convert("RGB")
     image = transform(image)
+    image = image.unsqueeze(0).to(torch.device('cuda:0'))
+    # Tokenize inputs and perform inference
+    inputs = processor(images=image, return_tensors="pt", padding=True)
+    inputs.to(torch.device('cuda:0'))
+    outputs = model(**inputs)
 
+    # Get the predicted class probabilities
+    logits = outputs.logits
+    probabilities = torch.nn.functional.softmax(logits.to(torch.device('cpu')), dim=1).detach().numpy()
+
+    return probabilities[0].argmax()
+
+
+def load_model_from_ckpt(ckpt):
+    model = ResNetForImageClassification.from_pretrained("microsoft/resnet-50")
+
+    device = torch.device("cpu")
+    model.classifier = torch.nn.Sequential(
+        torch.nn.Flatten(start_dim=1, end_dim=-1),
+        torch.nn.Linear(in_features=2048, out_features=5, bias=True))
+    model.to(torch.device(device))
+
+    # Load the model state_dict
+    state_dict = torch.load(ckpt, map_location="cpu" if torch.cuda.is_available() else "cpu")
+    model.load_state_dict(state_dict)
+
+    return model
 
 
 # Example usage
 audiopath = os.path.join('assets', 'audio.mp3')
 imagepath = os.path.join('assets', 'chest-pain.jpg')
+ckpt = 'ckpt/pytorch_model.bin'
 audio_transcription = transcribe_audio(audiopath)
 image_analysis = analyze_image(imagepath)
+severity_score = analyze_image_resnet(imagepath, ckpt_path=ckpt)
 emergency_text = generate_emergency_text()
 
 print(audio_transcription)
