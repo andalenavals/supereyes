@@ -98,7 +98,7 @@ def send_to_local_server(json_data):
     headers = {
         'Content-Type': 'application/json'
     }
-    response = requests.post(url, headers=headers, data=json.dumps(json_data))  # Convert JSON data to a string
+    response = requests.post(url, headers=headers, data=json_data)  # Convert JSON data to a string
     return response
 # Example usage
 audiopath1 = os.path.join('assets', 'audio.mp3')
@@ -124,7 +124,7 @@ prompt = f"Given the following inputs:\n\n" \
          f"Image Content Description: {image_analysis}\n" \
          f"Chat Transcript: {emergency_text}\n" \
          f"Call Transcript (TTS): {audio_transcription}\n\n" \
-         f"Please analyze the emergency situation and provide a brief analysis preparing a JSON body with this structure: {json_structure} PAY ATTENTION: JUST WRITE DOWN INSIDE THE JSON STRUCTURE, DON'T WRITE ANY OTHER THINGS. based on these parameters:\n\n" \
+         f"Please analyze the emergency situation and provide a brief analysis preparing a JSON body with this structure: {json_structure} PAY ATTENTION: JUST WRITE DOWN INSIDE THE JSON STRUCTURE, DON'T WRITE ANY OTHER THINGS AND PLEASE AVOID TO USE QUOTES OR HYPHENS OR OTHER SPECIAL CHARACTERS THAT CAN COMPROMISE THE JSON STRUCTURE. based on these parameters:\n\n" \
          "Sentiment + NACA Score: Evaluate and describe the overall sentiment of the individuals involved in the emergency situation based on the provided texts. max 35 words for sentiment and NACA score\n" \
          "Resources to Deploy: Recommend the appropriate emergency resources (choose only between AMBULANCE, POLICE, FIREFIGHTER) that should be deployed in this situation.\n" \
          "First Aid: Provide practical advice or instructions that can be suggested to the person in the emergency to do in the meantime while rescue services are en route. 30 words for immediate suggestions"
@@ -133,32 +133,26 @@ prompt = f"Given the following inputs:\n\n" \
 chatgpt_response = call_chatgpt(prompt)
 print(prompt)
 
-# Extract the JSON content from ChatGPT's response
-chatgpt_content = chatgpt_response['choices'][0]['message']['content']
+# Extract the content from the response
+content = chatgpt_response['choices'][0]['message']['content']
 
-# Assuming chatgpt_content is a string in JSON-like format, let's parse and reformat it
-try:
-    # Parse the string to a Python dictionary
-    # It's important to replace single quotes with double quotes for valid JSON
-    chatgpt_content_dict = json.loads(chatgpt_content.replace("'", "\""))
+# Parse the string to a Python dictionary
+# It's important to replace single quotes with double quotes for valid JSON
+parsed_content = json.loads(content.replace("'", "\""))
 
-    # Construct a new dictionary that matches the structure of your Emergency class
-    emergency_data = {
-        "sentiment": chatgpt_content_dict.get("sentiment", ""),
-        "nacaScore": chatgpt_content_dict.get("nacaScore", ""),
-        "firstAid": chatgpt_content_dict.get("firstAid", ""),
-        "resources": chatgpt_content_dict.get("resources", [])
-    }
+# Construct a new dictionary that matches the structure of your Emergency class
+emergency_data = {
+    "sentiment": parsed_content.get("sentiment", ""),
+    "nacaScore": parsed_content.get("nacaScore", ""),
+    "resources": parsed_content.get("resources", []),
+    "firstAid": parsed_content.get("firstAid", "")
+}
+# Serialize the Python dictionary to a JSON string
+json_data = json.dumps(emergency_data)
 
-    # Serialize the Python dictionary to a JSON string
-    json_data = json.dumps(emergency_data)
+print(content)
+print(parsed_content)
+print(json_data)
 
-    # Send the JSON data to the local server
-    local_server_response = send_to_local_server(json_data)
-    print("Local Server Response:")
-    print(local_server_response.text)
-
-except json.JSONDecodeError as e:
-    print(f"JSON decoding error: {e}")
-# Print the result
+send_to_local_server(json_data)
 print(chatgpt_response)
