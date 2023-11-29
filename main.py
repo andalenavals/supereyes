@@ -1,17 +1,9 @@
-import requests
-import json
 import os
-
-import transforms
-from safetensors import torch
-
 from emergencytext import generate_emergency_text
 from openai import OpenAI
 import base64
-from transformers import AutoImageProcessor, ResNetForImageClassification, ResNetConfig
-from PIL import Image
 import requests
-
+import json
 # Your OpenAI API key
 client = OpenAI()
 #client.api_key_path="apikey.txt"
@@ -20,12 +12,6 @@ with open('apikey.txt', 'r') as f:
     KEY= f.read()
 
 api_key = KEY
-
-
-transform = transforms.Compose([
-    transforms.Resize((224, 224)),  # Adjust size as needed
-    transforms.ToTensor(),
-])
 
 # Function to encode the image
 def encode_image(image_path):
@@ -107,76 +93,72 @@ def call_chatgpt(prompt):
     }
     response = requests.post(url, headers=headers, json=data)
     return response.json()
-
-def analyze_image_resnet(image_path, ckpt_path):
-
-    processor = AutoImageProcessor.from_pretrained("microsoft/resnet-50")
-    model = load_model_from_ckpt(ckpt_path)
-
-    image = Image.open(image_path).convert("RGB")
-    image = transform(image)
-    image = image.unsqueeze(0).to(torch.device('cuda:0'))
-    # Tokenize inputs and perform inference
-    inputs = processor(images=image, return_tensors="pt", padding=True)
-    inputs.to(torch.device('cuda:0'))
-    outputs = model(**inputs)
-
-    # Get the predicted class probabilities
-    logits = outputs.logits
-    probabilities = torch.nn.functional.softmax(logits.to(torch.device('cpu')), dim=1).detach().numpy()
-
-    return probabilities[0].argmax()
-
-
-def load_model_from_ckpt(ckpt_path):
-    model = ResNetForImageClassification.from_pretrained("microsoft/resnet-50")
-
-    device = torch.device("cpu")
-    model.classifier = torch.nn.Sequential(
-        torch.nn.Flatten(start_dim=1, end_dim=-1),
-        torch.nn.Linear(in_features=2048, out_features=5, bias=True))
-    model.to(torch.device(device))
-
-    # Load the model state_dict
-    state_dict = torch.load(ckpt_path, map_location="cpu" if torch.cuda.is_available() else "cpu")
-    model.load_state_dict(state_dict)
-
-    return model
-
-
+def send_to_local_server(json_data):
+    url = 'http://localhost:8081/api/emergency'  # Change to the correct URL of your local server
+    headers = {
+        'Content-Type': 'application/json'
+    }
+    response = requests.post(url, headers=headers, data=json.dumps(json_data))  # Convert JSON data to a string
+    return response
 # Example usage
 audiopath1 = os.path.join('assets', 'audio.mp3')
 imagepath1 = os.path.join('assets', 'chest-pain.jpg')
-woundpath1 = os.path.join('assets', 'wound.jpg')
 ckptpath = 'ckpt/pytorch_model.bin'
 
 audio_transcription = transcribe_audio(audiopath1)
 image_analysis = analyze_image(imagepath1)
-severity_score = analyze_image_resnet(woundpath1, ckpt_path=ckptpath)
 emergency_text = generate_emergency_text()
 
 print(audio_transcription)
 print(image_analysis)
-print(severity_score)
 print(emergency_text)
 
-
+json_structure = {
+    "sentiment": "write here the sentiment analysis and human readable description of NACA SCORE",
+    "nacaScore": 1,
+    "resources": ["AMBULANCE", "POLICE","FIREFIGHTER"],
+    "firstAid": "write here the first aid suggestions"
+}
 # Constructing the prompt for ChatGPT
 prompt = f"Given the following inputs:\n\n" \
-         f"Image Content Description: {image_analysis} with a wound severity score of {severity_score} on a scale from 0 to 4\n" \
+         f"Image Content Description: {image_analysis}\n" \
          f"Chat Transcript: {emergency_text}\n" \
          f"Call Transcript (TTS): {audio_transcription}\n\n" \
-         "Please analyze the emergency situation and provide a brief analysys based on these parameters:\n\n" \
-         "Sentiment: Evaluate and describe the overall sentiment of the individuals involved in the emergency situation based on the provided texts. max 10 words for sentiment\n" \
-         "NACA Score: Based on the severity and urgency indicated in the texts, assign a NACA (National Advisory Committee for Aeronautics) score to the situation. 4 words for naca score\n" \
-         "Resources to Deploy: Recommend the appropriate emergency resources (choose only between AMBULANCE, POLICE, FIREFIGHTER) that should be deployed in this situation. 5 words for resources to deploy\n" \
-         "Immediate Suggestions: Provide practical advice or instructions that can be suggested to the person in the emergency to do in the meantime while rescue services are en route. 30 words for immediate suggestions"
+         f"Please analyze the emergency situation and provide a brief analysis preparing a JSON body with this structure: {json_structure} PAY ATTENTION: JUST WRITE DOWN INSIDE THE JSON STRUCTURE, DON'T WRITE ANY OTHER THINGS. based on these parameters:\n\n" \
+         "Sentiment + NACA Score: Evaluate and describe the overall sentiment of the individuals involved in the emergency situation based on the provided texts. max 35 words for sentiment and NACA score\n" \
+         "Resources to Deploy: Recommend the appropriate emergency resources (choose only between AMBULANCE, POLICE, FIREFIGHTER) that should be deployed in this situation.\n" \
+         "First Aid: Provide practical advice or instructions that can be suggested to the person in the emergency to do in the meantime while rescue services are en route. 30 words for immediate suggestions"
 # Call ChatGPT-4 with the prompt
 
 chatgpt_response = call_chatgpt(prompt)
 print(prompt)
 
+# Extract the JSON content from ChatGPT's response
+chatgpt_content = chatgpt_response['choices'][0]['message']['content']
 
+# Assuming chatgpt_content is a string in JSON-like format, let's parse and reformat it
+try:
+    # Parse the string to a Python dictionary
+    # It's important to replace single quotes with double quotes for valid JSON
+    chatgpt_content_dict = json.loads(chatgpt_content.replace("'", "\""))
 
+    # Construct a new dictionary that matches the structure of your Emergency class
+    emergency_data = {
+        "sentiment": chatgpt_content_dict.get("sentiment", ""),
+        "nacaScore": chatgpt_content_dict.get("nacaScore", ""),
+        "firstAid": chatgpt_content_dict.get("firstAid", ""),
+        "resources": chatgpt_content_dict.get("resources", [])
+    }
+
+    # Serialize the Python dictionary to a JSON string
+    json_data = json.dumps(emergency_data)
+
+    # Send the JSON data to the local server
+    local_server_response = send_to_local_server(json_data)
+    print("Local Server Response:")
+    print(local_server_response.text)
+
+except json.JSONDecodeError as e:
+    print(f"JSON decoding error: {e}")
 # Print the result
 print(chatgpt_response)
