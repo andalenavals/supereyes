@@ -34,12 +34,12 @@ def generate_emergency_text():
     # Randomly choose a user-generated message for the selected scenario
     user_message = random.choice(emergency_scenarios[emergency_type])
 
-    return f"User: {user_message}"
+    return f"{user_message}"
 
 # Example usage
-emergency_text = generate_emergency_text()
-print(emergency_text)
+#emergency_text = generate_emergency_text()
+#print(emergency_text)
 
 # Example usage
-emergency_text = generate_emergency_response()
-print(emergency_text)
+#emergency_text = generate_emergency_response()
+#print(emergency_text)
