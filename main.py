@@ -3,16 +3,25 @@ import json
 import os
 from emergencytext import generate_emergency_text
 import base64
+from transformers import AutoImageProcessor, ResNetForImageClassification, ResNetConfig
+from PIL import Image
+
 # Your OpenAI API key
 with open('apikey.txt', 'r') as f:
-    KEY= f.read()
+    KEY = f.read()
 
 api_key = KEY
+
+transform = transforms.Compose([
+    transforms.Resize((224, 224)),  # Adjust size as needed
+    transforms.ToTensor(),
+])
 
 # Function to encode the image
 def encode_image(image_path):
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode('utf-8')
+
 
 # Function to transcribe audio using Whisper
 def transcribe_audio(file_path):
@@ -27,6 +36,7 @@ def transcribe_audio(file_path):
     }
     response = requests.post(url, headers=headers, files=files)
     return response.json()
+
 
 # Function to analyze image using GPT-4 Vision
 def analyze_image(base64_image):
@@ -59,9 +69,19 @@ def analyze_image(base64_image):
     response = requests.post(url, headers=headers, json=payload)
     return response.json()
 
+def analyze_image_resnet(imgage_path):
+
+    processor = AutoImageProcessor.from_pretrained("microsoft/resnet-50")
+    model = ResNetForImageClassification.from_pretrained()
+
+    image = Image.open(img_name).convert("RGB")
+    image = transform(image)
+
+
+
 # Example usage
-audiopath=os.path.join('assets', 'audio.mp3')
-imagepath=os.path.join('assets', 'chest-pain.jpg')
+audiopath = os.path.join('assets', 'audio.mp3')
+imagepath = os.path.join('assets', 'chest-pain.jpg')
 audio_transcription = transcribe_audio(audiopath)
 image_analysis = analyze_image(imagepath)
 emergency_text = generate_emergency_text()
