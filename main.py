@@ -72,7 +72,7 @@ def analyze_image(base64_image):
 def analyze_image_resnet(image_path, ckpt_path):
 
     processor = AutoImageProcessor.from_pretrained("microsoft/resnet-50")
-    model = load_model_from_ckpt("ckpt/ResNet50/pytorch_model.bin")
+    model = load_model_from_ckpt(ckpt_path)
 
     image = Image.open(image_path).convert("RGB")
     image = transform(image)
@@ -89,7 +89,7 @@ def analyze_image_resnet(image_path, ckpt_path):
     return probabilities[0].argmax()
 
 
-def load_model_from_ckpt(ckpt):
+def load_model_from_ckpt(ckpt_path):
     model = ResNetForImageClassification.from_pretrained("microsoft/resnet-50")
 
     device = torch.device("cpu")
@@ -99,7 +99,7 @@ def load_model_from_ckpt(ckpt):
     model.to(torch.device(device))
 
     # Load the model state_dict
-    state_dict = torch.load(ckpt, map_location="cpu" if torch.cuda.is_available() else "cpu")
+    state_dict = torch.load(ckpt_path, map_location="cpu" if torch.cuda.is_available() else "cpu")
     model.load_state_dict(state_dict)
 
     return model
@@ -108,14 +108,15 @@ def load_model_from_ckpt(ckpt):
 # Example usage
 audiopath = os.path.join('assets', 'audio.mp3')
 imagepath = os.path.join('assets', 'chest-pain.jpg')
-ckpt = 'ckpt/pytorch_model.bin'
+ckptpath = 'ckpt/pytorch_model.bin'
 audio_transcription = transcribe_audio(audiopath)
 image_analysis = analyze_image(imagepath)
-severity_score = analyze_image_resnet(imagepath, ckpt_path=ckpt)
+severity_score = analyze_image_resnet(imagepath, ckpt_path=ckptpath)
 emergency_text = generate_emergency_text()
 
 print(audio_transcription)
 print(image_analysis)
+print(severity_score)
 print(emergency_text)
 
 
