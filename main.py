@@ -1,5 +1,4 @@
 import os
-from emergencytext import generate_emergency_text
 from openai import OpenAI
 import base64
 import requests
@@ -101,20 +100,23 @@ def send_to_local_server(json_data):
     response = requests.post(url, headers=headers, data=json_data)  # Convert JSON data to a string
     return response
 # Example usage
-audiopath1 = os.path.join('assets', 'audio.mp3')
-imagepath1 = os.path.join('assets', 'chest-pain.jpg')
+audiopath1 = os.path.join('assets', 'case.mp3')
+imagepath1 = os.path.join('assets', 'image.jpg')
 ckptpath = 'ckpt/pytorch_model.bin'
 
 audio_transcription = transcribe_audio(audiopath1)
 image_analysis = analyze_image(imagepath1)
-emergency_text = generate_emergency_text()
-
+emergency_text = (
+    "[Person]: “I’m texting because my microphone doesn’t work anymore! I’m sending the image”\n"
+    "[Operator]: “ok don’t worry, keep calm”\n"
+    "[Person]: \"We're on the ground floor, but it's filling with smoke and he’s bleeding a lot!\""
+)
 print(audio_transcription)
 print(image_analysis)
 print(emergency_text)
 
 json_structure = {
-    "sentiment": "write here the sentiment analysis and human readable description of NACA SCORE",
+    "sentiment": "write here the sentiment analysis",
     "nacaScore": 1,
     "resources": ["AMBULANCE", "POLICE","FIREFIGHTER"],
     "firstAid": "write here the first aid suggestions"
